@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
     uint32_t speed = CH341A_STM_I2C_20K;
     int8_t c;
     int offset = 0;
+    struct spi_flash_info *ps;
 
     const char usage[] =
         "\nUsage:\n"\
@@ -162,16 +163,22 @@ int main(int argc, char* argv[])
         return -1;
     ret = ch341SetStream(speed);
     if (ret < 0) goto out;
+#if 0
     ret = ch341SpiCapacity();
     if (ret < 0) goto out;
     cap = 1 << ret;
     printf("Chip capacity is %d bytes\n", cap);
+#endif
+    ps = ch341SpiCapacity();
+    if (ps == NULL) goto out;
+    cap = (int)ps->size;
 
     if (length != 0){
         cap = length;
     }
     if (op == 'i') goto out;
     if (op == 'e') {
+        uint32_t retry_times = cap / 1024 / 128; /* It take more time for big flash */
         uint8_t timeout = 0;
         ret = ch341EraseChip();
         if (ret < 0) goto out;
@@ -182,10 +189,10 @@ int main(int argc, char* argv[])
             printf(".");
             fflush(stdout);
             timeout++;
-            if (timeout == 100) break;
+            if (timeout >= retry_times) break;
         } while(ret != 0);
-        if (timeout == 100)
-            fprintf(stderr, "Chip erase timeout.\n");
+        if (timeout >= retry_times)
+            fprintf(stderr, "Chip erase timeout. retry %u\n", retry_times);
         else
             printf("Chip erase done!\n");
     }

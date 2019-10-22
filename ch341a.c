@@ -29,6 +29,7 @@
 #include <string.h>
 #include <signal.h>
 #include "ch341a.h"
+#include "spi.h"
 
 struct libusb_device_handle *devHandle = NULL;
 struct sigaction saold;
@@ -249,14 +250,15 @@ int32_t ch341SpiStream(uint8_t *out, uint8_t *in, uint32_t len)
 
 #define JEDEC_ID_LEN 0x52    // additional byte due to SPI shift
 /* read the JEDEC ID of the SPI Flash */
-int32_t ch341SpiCapacity(void)
+struct spi_flash_info *ch341SpiCapacity(void)
 {
     uint8_t out[JEDEC_ID_LEN];
     uint8_t in[JEDEC_ID_LEN], *ptr, cap;
     int32_t ret;
+    struct spi_flash_info *ps;
 
     if (devHandle == NULL)
-        return -1;
+        return NULL;
 
     ptr = out;
     *ptr++ = 0x9F; // Read JEDEC ID
@@ -267,8 +269,22 @@ int32_t ch341SpiCapacity(void)
     ret = ch341SpiStream(out, in, JEDEC_ID_LEN);
 
     if (ret < 0)
-        return ret;
+        return NULL;
 
+    ps = NULL;
+    if (! (in[1] == 0xFF && in[2] == 0xFF && in[3] == 0xFF)) {
+        printf("Manufacturer ID: %02x\n", in[1]);
+        printf("Memory Type: %02x%02x\n", in[2], in[3]);
+        ps = spi_flash_lookup(in[1], in[2], in[3]);
+    }
+    if (ps == NULL) {
+        printf("Chip not found or missed in ch341a. Check connection\n");
+        exit(0);
+    }
+    printf("Found SPI Chip %s (%ld MiB)\n", ps->name, ps->size/0x100000);
+    return ps;
+
+#if 0
     if (! (in[1] == 0xFF && in[2] == 0xFF && in[3] == 0xFF))
     {
         printf("Manufacturer ID: %02x\n", in[1]);
@@ -294,6 +310,7 @@ int32_t ch341SpiCapacity(void)
     }
 
     return cap;
+#endif
 }
 
 /* read status register */

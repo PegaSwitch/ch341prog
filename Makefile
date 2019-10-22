@@ -7,8 +7,8 @@ mandir = $(sharedir)/man
 man1dir = $(mandir)/man1
 
 CFLAGS=-std=gnu99 -Wall
-$(PKG): main.c ch341a.c ch341a.h
-	gcc $(CFLAGS) ch341a.c main.c -o $(PKG)  -lusb-1.0
+$(PKG): main.c ch341a.c ch341a.h spi.c spi.h
+	gcc $(CFLAGS) spi.c ch341a.c main.c -o $(PKG)  -lusb-1.0
 clean:
 	rm *.o $(PKG) -f
 install-udev-rule:
